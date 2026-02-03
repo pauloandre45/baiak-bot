@@ -1,0 +1,12 @@
+# Bot para Tibia 15.11
+# Dependencias necessarias
+
+# Leitura de memoria (ESSENCIAL)
+pymem>=1.13.1
+
+# API Windows (enviar teclas, encontrar janelas)
+pywin32>=306
+
+# Opcional (nao usado no v2)
+keyboard>=0.13.5
+Pillow>=10.0.0
