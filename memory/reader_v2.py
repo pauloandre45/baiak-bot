@@ -116,6 +116,11 @@ class TibiaMemoryReader:
             # Tenta carregar offsets salvos
             self._load_offsets()
             
+            # Verifica se os offsets são válidos
+            if not self._verify_offsets():
+                print("[MEMORY] Offsets inválidos, executando auto-scanner...")
+                self._auto_find_offsets()
+            
             return True
             
         except pymem.exception.ProcessNotFound:
@@ -158,27 +163,150 @@ class TibiaMemoryReader:
     def _load_offsets(self):
         """
         Carrega enderecos do arquivo de cache
+        Suporta formato antigo (hp, hp_max, mp, mp_max) e novo (hp_addr)
         """
+        # Offsets conhecidos do Tibia 15.11 BaiakZika
+        OFFSET_HP_MAX = 0x8
+        OFFSET_MP = 0x620
+        OFFSET_MP_MAX = 0x628
+        
         try:
             if os.path.exists(self._offsets_file):
                 with open(self._offsets_file, 'r') as f:
                     data = json.load(f)
                 
+                # Novo formato (Smart Scanner V3): hp_addr
+                if "hp_addr" in data:
+                    hp_addr = data["hp_addr"]
+                    if isinstance(hp_addr, str):
+                        hp_addr = int(hp_addr, 16)
+                    
+                    self._addresses["hp"] = hp_addr
+                    self._addresses["hp_max"] = hp_addr + OFFSET_HP_MAX
+                    self._addresses["mp"] = hp_addr + OFFSET_MP
+                    self._addresses["mp_max"] = hp_addr + OFFSET_MP_MAX
+                    
+                    print(f"[MEMORY] Offsets carregados (V3):")
+                    print(f"         HP: {hex(hp_addr)}")
+                    return True
+                
+                # Formato antigo: hp, hp_max, mp, mp_max separados
                 for key, value in data.items():
                     if key in self._addresses:
                         self._addresses[key] = int(value, 16) if isinstance(value, str) else value
                 
-                print(f"[MEMORY] Offsets carregados:")
-                for k, v in self._addresses.items():
-                    if v:
-                        print(f"         {k}: {hex(v)}")
-                
-                return True
+                if self._addresses["hp"]:
+                    print(f"[MEMORY] Offsets carregados:")
+                    for k, v in self._addresses.items():
+                        if v:
+                            print(f"         {k}: {hex(v)}")
+                    return True
                 
         except Exception as e:
             print(f"[AVISO] Nao foi possivel carregar offsets: {e}")
         
         return False
+    
+    def _verify_offsets(self):
+        """
+        Verifica se os offsets salvos ainda são válidos
+        """
+        if not self._addresses["hp"] or not self._addresses["hp_max"]:
+            return False
+        
+        try:
+            hp = self.pm.read_int(self._addresses["hp"])
+            hp_max = self.pm.read_int(self._addresses["hp_max"])
+            
+            # Verifica se os valores fazem sentido
+            if hp <= 0 or hp_max <= 0:
+                return False
+            if hp > hp_max:
+                return False
+            if hp_max > 1000000:  # Valor muito alto
+                return False
+            
+            print(f"[MEMORY] Offsets validados: HP={hp}/{hp_max}")
+            return True
+            
+        except Exception as e:
+            print(f"[MEMORY] Offsets inválidos: {e}")
+            return False
+    
+    def _auto_find_offsets(self, hp_value=None, mp_value=None):
+        """
+        Usa o Smart Scanner V3 para encontrar os offsets automaticamente.
+        
+        Ordem de prioridade:
+        1. Smart Scanner V3 (totalmente automático, ~15s)
+        2. Pattern Scanner (fallback se V3 falhar)
+        
+        Args:
+            hp_value: Não usado (V3 é automático)
+            mp_value: Não usado (V3 é automático)
+        """
+        # Tenta Smart Scanner V3 primeiro (totalmente automático)
+        try:
+            from memory.smart_scanner import SmartScanner
+            
+            scanner = SmartScanner(self.process_name)
+            scanner.pm = self.pm  # Reutiliza a conexão
+            
+            print("[MEMORY] Tentando Smart Scanner V3 (automático)...")
+            result = scanner.find_player_auto()
+            
+            if result:
+                self._addresses["hp"] = result["addr"]
+                self._addresses["hp_max"] = result["addr"] + scanner.OFFSET_HP_MAX
+                self._addresses["mp"] = result["addr"] + scanner.OFFSET_MP
+                self._addresses["mp_max"] = result["addr"] + scanner.OFFSET_MP_MAX
+                
+                # Salva no cache
+                self._save_offsets()
+                
+                print(f"[MEMORY] ✓ Player encontrado automaticamente!")
+                print(f"         HP={result['hp']}/{result['hp_max']}, MP={result['mp']}/{result['mp_max']}")
+                return True
+                
+        except Exception as e:
+            print(f"[MEMORY] Smart Scanner V3 falhou: {e}")
+        
+        # Fallback para Pattern Scanner
+        try:
+            from memory.pattern_scanner import PatternScanner
+            
+            scanner = PatternScanner(self.process_name)
+            scanner.pm = self.pm  # Reutiliza a conexão
+            
+            print("[MEMORY] Tentando Pattern Scanner...")
+            offsets = scanner.auto_find(hp_value, mp_value)
+            
+            if offsets:
+                self._addresses["hp"] = offsets["hp"]
+                self._addresses["hp_max"] = offsets["hp_max"]
+                self._addresses["mp"] = offsets["mp"]
+                self._addresses["mp_max"] = offsets["mp_max"]
+                
+                print("[MEMORY] ✓ Offsets encontrados via Pattern Scanner!")
+                return True
+                
+        except Exception as e:
+            print(f"[MEMORY] Pattern Scanner falhou: {e}")
+        
+        print("[MEMORY] ✗ Não foi possível encontrar offsets automaticamente")
+        return False
+    
+    def _save_offsets(self):
+        """Salva os endereços encontrados no cache"""
+        try:
+            data = {
+                "hp_addr": self._addresses["hp"],
+                "last_scan": time.time()
+            }
+            with open(self._offsets_file, 'w') as f:
+                json.dump(data, f, indent=2)
+        except:
+            pass
     
     def set_address(self, key, address):
         """
@@ -190,6 +318,26 @@ class TibiaMemoryReader:
         if key in self._addresses:
             self._addresses[key] = address
             print(f"[MEMORY] {key} = {hex(address)}")
+    
+    def scan_with_values(self, hp_value, mp_value=None):
+        """
+        Faz um scan precisão usando os valores atuais do jogador.
+        
+        Use este método quando o scan automático falhar.
+        Olhe seu HP/MP no jogo e passe os valores.
+        
+        Args:
+            hp_value: HP atual do personagem
+            mp_value: MP atual do personagem (opcional)
+        
+        Returns:
+            True se encontrou, False caso contrário
+        """
+        if not self.connected:
+            print("[MEMORY] Não está conectado!")
+            return False
+        
+        return self._auto_find_offsets(hp_value, mp_value)
     
     def has_offsets(self):
         """

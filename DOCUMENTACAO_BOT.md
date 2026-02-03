@@ -519,32 +519,125 @@ Pillow>=10.0.0
 
 **Resultado:** Interface Premium (`main_ultimate.py`) agora funciona corretamente!
 
+### Sessão 8 - Smart Scanner V3 (03/02/2026)
+**GRANDE AVANÇO:** Criamos o Smart Scanner V3 que encontra o player **AUTOMATICAMENTE** sem precisar de input do usuário!
+
+**Problema anterior:**
+- Pattern Scanner falhava após reiniciar o cliente (bytes mudavam)
+- Usuário precisava digitar HP/MP manualmente (ruim para distribuição)
+
+**Solução Smart Scanner V3:**
+- Busca estruturas onde HP == HP_MAX (vida cheia)
+- Valida MP no offset +0x620 (não pode ser 0 ou potência de 2)
+- Verifica campo de Level no offset +0x14
+- Aplica scoring para ranquear o melhor candidato
+
+**Critérios de validação:**
+1. HP no range 150-30000
+2. HP == HP_MAX (vida cheia - comum ao abrir o bot)
+3. MP_MAX diferente de HP_MAX
+4. MP > 0 e não é potência de 2 (256, 512, 1024, etc.)
+5. Level entre 1-2000 e diferente de HP
+
+**Resultado:** Encontra o player correto em ~15 segundos sem NENHUM input!
+
+**Interface com barra de progresso:**
+- Popup estilo download mostrando progresso
+- Barra colorida (azul → verde)
+- Porcentagem e tempo em tempo real
+- Tela de sucesso ao encontrar
+
 ---
 
-## 🔧 Endereços Encontrados (Última Sessão)
+## 🤖 Smart Scanner V3 - Detalhes Técnicos
+
+### Por que é automático?
+
+O scanner V3 usa **heurísticas** para identificar o player:
+
+```python
+# Critérios principais:
+1. HP == HP_MAX          → Player com vida cheia (comum)
+2. MP em range válido    → Elimina buffers/falsos positivos
+3. Level no offset +0x14 → Confirma estrutura do player
+4. Scoring inteligente   → MP_MAX > HP_MAX ganha pontos (mages)
+```
+
+### Estrutura de Memória do Player (Tibia 15.11 BaiakZika)
 
 ```
-Processo: client.exe (Tibia 15.11)
-PID: 23332
-
-HP:     0x201cd3272f0
-HP_MAX: 0x201cd3272f8
-MP:     0x201cd327910
-MP_MAX: 0x201cd327918
-
-Offset HP -> MP: 0x620 (1568 bytes)
+Offset    Campo         Tamanho
+────────────────────────────────
++0x00     HP            4 bytes (int32)
++0x08     HP_MAX        4 bytes (int32)
++0x14     Level(?)      4 bytes (int32)
+...
++0x620    MP            4 bytes (int32)
++0x628    MP_MAX        4 bytes (int32)
 ```
+
+### Velocidade do Scanner
+
+| Situação | Tempo |
+|----------|-------|
+| Primeira vez (sem cache) | ~13-15 segundos |
+| Com cache válido | **Instantâneo** |
+| Após reiniciar Tibia | ~13-15 segundos |
+
+### O que NÃO afeta a velocidade:
+- ❌ Level do personagem
+- ❌ Quantidade de HP/MP
+- ❌ Primeira vez vs. veterano
+
+### O que AFETA a velocidade:
+- ✅ Velocidade do processador (CPU)
+- ✅ Quantidade de RAM alocada pelo Tibia
+
+---
+
+## 🔧 Offsets Confirmados (Tibia 15.11 BaiakZika)
+
+```
+HP      = endereço base
+HP_MAX  = HP + 0x8
+MP      = HP + 0x620
+MP_MAX  = HP + 0x628
+Level   = HP + 0x14 (possível)
+```
+
+**IMPORTANTE:** Os endereços base mudam a cada reinício do Tibia (ASLR).
+O scanner encontra automaticamente o novo endereço.
+
+---
+
+## 📊 Comparação com Outros Bots
+
+### Métodos de leitura de HP/MP:
+
+| Método | ZeroBot | WindBot | Nosso Bot |
+|--------|---------|---------|-----------|
+| Leitura de Memória | ✅ | ✅ | ✅ |
+| Leitura de Pixels | ✅ backup | ? | ❌ |
+| Precisa Status Bar | Talvez | Sim | **NÃO** |
+| Auto-detecta player | ✅ | ✅ | ✅ |
+
+### Vantagens do nosso bot:
+- ✅ **100% automático** - não pede HP/MP do usuário
+- ✅ **Funciona sem Status Bar** visível
+- ✅ **Leitura instantânea** (não depende de FPS)
+- ✅ **Funciona em background** (janela minimizada)
 
 ---
 
 ## 📞 Próximos Passos
 
 1. [x] ~~**CORRIGIR** interface com ícones PNG~~ ✅ FEITO!
-2. [ ] Adicionar módulo de Mana (usar MP ao invés de HP)
-3. [ ] Adicionar módulo de Attack
-4. [ ] Salvar/Carregar configurações
-5. [ ] Adicionar mais spells ao mapeamento de ícones
-6. [ ] Fazer botão Connect funcionar na interface Premium
+2. [x] ~~**Smart Scanner automático**~~ ✅ FEITO!
+3. [x] ~~**Barra de progresso no Connect**~~ ✅ FEITO!
+4. [ ] Adicionar módulo de Attack
+5. [ ] Salvar/Carregar configurações
+6. [ ] Adicionar mais spells ao mapeamento de ícones
+7. [ ] Testar em outros servidores/versões
 
 ---
 
@@ -556,4 +649,4 @@ Offset HP -> MP: 0x620 (1568 bytes)
 ---
 
 *Documentação criada em: 03/02/2026*
-*Última atualização: 03/02/2026 - Correção interface Premium*
+*Última atualização: 03/02/2026 - Smart Scanner V3 + Barra de Progresso*

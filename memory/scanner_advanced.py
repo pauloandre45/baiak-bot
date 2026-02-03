@@ -150,17 +150,25 @@ class AdvancedScanner:
             if result == 0:
                 break
             
+            base = mbi.BaseAddress
+            size = mbi.RegionSize
+            
+            # Pula se base é None
+            if base is None or size is None or size == 0:
+                address += 0x10000  # Pula 64KB
+                continue
+            
             # Pula para proxima regiao
-            next_address = mbi.BaseAddress + mbi.RegionSize
+            next_address = base + size
             
             # Verifica se a regiao e valida para leitura
             if (mbi.State == MEM_COMMIT and 
                 mbi.Protect in [PAGE_READWRITE, PAGE_READONLY, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE] and
-                mbi.RegionSize < 100 * 1024 * 1024):  # Max 100MB por regiao
+                size < 100 * 1024 * 1024):  # Max 100MB por regiao
                 
                 try:
                     # Le a regiao de memoria
-                    data = self.pm.read_bytes(mbi.BaseAddress, mbi.RegionSize)
+                    data = self.pm.read_bytes(base, size)
                     bytes_scanned += len(data)
                     regions_scanned += 1
                     
@@ -171,7 +179,7 @@ class AdvancedScanner:
                         if pos == -1:
                             break
                         
-                        addr = mbi.BaseAddress + pos
+                        addr = base + pos
                         results.append(addr)
                         pos += 1
                         
@@ -180,8 +188,8 @@ class AdvancedScanner:
             
             address = next_address
             
-            # Evita loop infinito
-            if address > 0x7FFFFFFF:
+            # Evita loop infinito (limite 64-bit)
+            if address > 0x7FFFFFFFFFFF:
                 break
         
         print(f"[SCAN] Escaneados {regions_scanned} regioes, {bytes_scanned / 1024 / 1024:.1f} MB")

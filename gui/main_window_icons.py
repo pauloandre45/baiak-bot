@@ -187,6 +187,80 @@ class BotWindowWithIcons:
         self.bot_enabled = False
         self.running = True
         self.current_tab = "Healing"
+        self.selected_class = "Knight"  # Classe selecionada
+        self.healing_var = None  # Será criado depois com tk.BooleanVar
+        
+        # Spells por classe (5 classes: Knight, Paladin, Sorcerer, Druid, Monk)
+        self.class_spells = {
+            "Knight": [
+                ("Exura", "exura", "Light Healing"),
+                ("Exura Gran", "exura gran", "Intense Healing"),
+                ("Exura Gran Ico", "exura gran ico", "Intense Wound Cleansing"),
+                ("Utani Hur", "utani hur", "Haste"),
+                ("Utito Tempo", "utito tempo", "Blood Rage"),
+                ("Exeta Res", "exeta res", "Challenge"),
+                ("Exori", "exori", "Brutal Strike"),
+                ("Exori Gran", "exori gran", "Fierce Berserk"),
+                ("Exori Min", "exori min", "Berserk"),
+                ("Exori Mas", "exori mas", "Groundshaker"),
+            ],
+            "Paladin": [
+                ("Exura", "exura", "Light Healing"),
+                ("Exura Gran", "exura gran", "Intense Healing"),
+                ("Exura San", "exura san", "Divine Healing"),
+                ("Utani Hur", "utani hur", "Haste"),
+                ("Utani Gran Hur", "utani gran hur", "Strong Haste"),
+                ("Exori Con", "exori con", "Ethereal Spear"),
+                ("Exori Gran Con", "exori gran con", "Strong Ethereal Spear"),
+                ("Exori San", "exori san", "Divine Missile"),
+                ("Exevo Mas San", "exevo mas san", "Divine Caldera"),
+                ("San Shake", "utito tempo san", "Sharpshooter"),
+            ],
+            "Sorcerer": [
+                ("Exura", "exura", "Light Healing"),
+                ("Exura Vita", "exura vita", "Ultimate Healing"),
+                ("Utamo Vita", "utamo vita", "Magic Shield"),
+                ("Utani Hur", "utani hur", "Haste"),
+                ("Utani Gran Hur", "utani gran hur", "Strong Haste"),
+                ("Exori Vis", "exori vis", "Energy Strike"),
+                ("Exori Mort", "exori mort", "Death Strike"),
+                ("Exori Flam", "exori flam", "Flame Strike"),
+                ("Exevo Gran Mas Vis", "exevo gran mas vis", "Rage of the Skies"),
+                ("Exevo Gran Mas Flam", "exevo gran mas flam", "Hell's Core"),
+            ],
+            "Druid": [
+                ("Exura", "exura", "Light Healing"),
+                ("Exura Gran", "exura gran", "Intense Healing"),
+                ("Exura Vita", "exura vita", "Ultimate Healing"),
+                ("Exura Sio", "exura sio", "Heal Friend"),
+                ("Exura Gran Mas Res", "exura gran mas res", "Mass Healing"),
+                ("Utamo Vita", "utamo vita", "Magic Shield"),
+                ("Utani Hur", "utani hur", "Haste"),
+                ("Exori Tera", "exori tera", "Terra Strike"),
+                ("Exori Frigo", "exori frigo", "Ice Strike"),
+                ("Exevo Gran Mas Tera", "exevo gran mas tera", "Wrath of Nature"),
+            ],
+            "Monk": [
+                ("Exura", "exura", "Light Healing"),
+                ("Exura Gran", "exura gran", "Intense Healing"),
+                ("Exura San", "exura san", "Divine Healing"),
+                ("Utani Hur", "utani hur", "Haste"),
+                ("Utito Tempo", "utito tempo", "Blood Rage"),
+                ("Punch", "exori moe ico", "Monk Punch"),
+                ("Kick", "exori moe", "Monk Kick"),
+                ("Combo", "exori gran moe", "Monk Combo"),
+                ("Dodge", "utamo moe", "Monk Dodge"),
+                ("Chi Wave", "exevo mas moe", "Chi Wave"),
+            ],
+        }
+        
+        self.class_colors = {
+            "Knight": "#ef4444",
+            "Paladin": "#22c55e", 
+            "Sorcerer": "#3b82f6",
+            "Druid": "#a855f7",
+            "Monk": "#f59e0b",
+        }
         
         # Janela principal
         self.root = tk.Tk()
@@ -326,10 +400,6 @@ class BotWindowWithIcons:
             ("Attack", "Sudden_Death_Rune.png"),
             ("Runes", "Category_Runes.png"),
             ("Targeting", "Outfit_Assassin_Male.png"),
-            ("1", None),
-            ("2", None),
-            ("3", None),
-            ("4", None),
         ]
         
         for name, icon_file in menu_items_1:
@@ -525,161 +595,530 @@ class BotWindowWithIcons:
             self._create_placeholder(tab_name)
     
     def _create_healing_tab(self):
-        """Aba de Healing com ícones reais"""
+        """Aba de Healing estilo ZeroBot"""
         frame = tk.Frame(self.content_frame, bg=self.colors['bg_panel'])
-        frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
+        frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Título com ícone
-        title_frame = tk.Frame(frame, bg=self.colors['bg_panel'])
-        title_frame.pack(fill=tk.X, pady=(0, 10))
+        # === HEADER: Colunas da tabela ===
+        header_frame = tk.Frame(frame, bg=self.colors['bg_dark'])
+        header_frame.pack(fill=tk.X)
         
-        try:
-            title_icon = self.icons.get_icon("Category_Potions.png", 28)
-            icon_label = tk.Label(title_frame, image=title_icon, bg=self.colors['bg_panel'])
-            icon_label.image = title_icon
-            icon_label.pack(side=tk.LEFT, padx=(0, 8))
-        except:
-            pass
+        # Colunas: Active | Icon | Spell/Item | Value | Condition
+        tk.Label(header_frame, text="Ac.", bg=self.colors['bg_dark'],
+                fg=self.colors['text_dim'], font=('Segoe UI', 8, 'bold'),
+                width=3).pack(side=tk.LEFT, padx=2)
+        tk.Label(header_frame, text="", bg=self.colors['bg_dark'],
+                width=4).pack(side=tk.LEFT)  # Ícone
+        tk.Label(header_frame, text="Spell / Item", bg=self.colors['bg_dark'],
+                fg=self.colors['text_dim'], font=('Segoe UI', 8, 'bold'),
+                width=15, anchor='w').pack(side=tk.LEFT, padx=5)
+        tk.Label(header_frame, text="Value", bg=self.colors['bg_dark'],
+                fg=self.colors['text_dim'], font=('Segoe UI', 8, 'bold'),
+                width=6).pack(side=tk.LEFT, padx=5)
+        tk.Label(header_frame, text="Condition", bg=self.colors['bg_dark'],
+                fg=self.colors['text_dim'], font=('Segoe UI', 8, 'bold'),
+                width=18, anchor='w').pack(side=tk.LEFT, padx=5)
         
-        tk.Label(title_frame, text="Auto-Healing", bg=self.colors['bg_panel'],
-                fg=self.colors['accent'], font=('Segoe UI', 14, 'bold')).pack(side=tk.LEFT)
+        # === LISTA DE CURAS ===
+        self.healing_list_frame = tk.Frame(frame, bg=self.colors['bg_panel'])
+        self.healing_list_frame.pack(fill=tk.BOTH, expand=True, pady=5)
         
-        # Toggle
+        # Lista de curas (dados)
+        self.healing_entries = []
+        
+        # Curas padrão
+        default_heals = [
+            {"enabled": True, "spell": "exura med ico", "item_id": "", "hp_percent": True, "condition": ">=", "value": 0, "and_value": 0, "hotkey": "F1"},
+            {"enabled": True, "spell": "", "item_id": "23375", "hp_percent": True, "condition": "<=", "value": 100, "and_value": 0, "hotkey": "F2"},
+            {"enabled": True, "spell": "", "item_id": "23373", "hp_percent": True, "condition": "<=", "value": 100, "and_value": 0, "hotkey": "F3"},
+        ]
+        
+        for heal_data in default_heals:
+            self._add_healing_entry(heal_data)
+        
+        # === BOTÕES INFERIORES ===
+        btn_frame = tk.Frame(frame, bg=self.colors['bg_panel'])
+        btn_frame.pack(fill=tk.X, pady=10)
+        
+        # Botão Adicionar
+        add_btn = tk.Button(
+            btn_frame, text="+ Add",
+            font=('Segoe UI', 9),
+            bg=self.colors['btn'], fg=self.colors['text'],
+            relief=tk.FLAT, cursor='hand2', padx=15,
+            command=self._add_new_healing
+        )
+        add_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Enable Healing checkbox
         self.healing_var = tk.BooleanVar(value=False)
-        self.healing_cb = tk.Checkbutton(
-            title_frame, text="Enable",
+        enable_cb = tk.Checkbutton(
+            btn_frame, text="Enable Healing",
             variable=self.healing_var,
             bg=self.colors['bg_panel'], fg=self.colors['text'],
             selectcolor=self.colors['bg_dark'],
-            font=('Segoe UI', 10),
+            font=('Segoe UI', 9),
             command=self._toggle_healing
         )
-        self.healing_cb.pack(side=tk.RIGHT)
+        enable_cb.pack(side=tk.LEFT, padx=20)
         
-        # Separador
-        tk.Frame(frame, bg=self.colors['border'], height=1).pack(fill=tk.X, pady=10)
-        
-        # Heal entries
-        self.heal_entries = {}
-        
-        # Spell Hi
-        self._create_heal_row(frame, "Spell Hi", "exura vita", 90, 0, "F1")
-        
-        # Spell Lo
-        self._create_heal_row(frame, "Spell Lo", "exura gran", 70, 0, "F2")
-        
-        # UH Rune
-        self._create_heal_row(frame, "UH Rune", "uh rune", 50, 0, "F3")
-        
-        # Separador
-        tk.Frame(frame, bg=self.colors['border'], height=1).pack(fill=tk.X, pady=10)
-        
-        # HP Potion
-        self._create_heal_row(frame, "HP Potion", "ultimate health", 60, 0, "F4")
-        
-        # MP Potion
-        self._create_heal_row(frame, "MP Potion", "great mana", 0, 50, "F5", is_mana=True)
-        
-        # Delay
-        delay_frame = tk.Frame(frame, bg=self.colors['bg_panel'])
-        delay_frame.pack(fill=tk.X, pady=15)
-        
-        tk.Label(delay_frame, text="Delay:", bg=self.colors['bg_panel'],
-                fg=self.colors['text'], font=('Segoe UI', 9)).pack(side=tk.LEFT)
-        
-        self.delay_var = tk.StringVar(value="100")
-        delay_entry = tk.Entry(delay_frame, textvariable=self.delay_var, width=6,
-                              font=('Segoe UI', 9), bg=self.colors['bg_input'],
-                              fg=self.colors['text'], relief=tk.FLAT,
-                              insertbackground='white')
-        delay_entry.pack(side=tk.LEFT, padx=5)
-        
-        tk.Label(delay_frame, text="ms", bg=self.colors['bg_panel'],
-                fg=self.colors['text_dim'], font=('Segoe UI', 8)).pack(side=tk.LEFT)
+        # Hotkey label
+        tk.Label(btn_frame, text="Set Key", bg=self.colors['bg_panel'],
+                fg=self.colors['text_dim'], font=('Segoe UI', 8)).pack(side=tk.RIGHT, padx=5)
     
-    def _create_heal_row(self, parent, label, default_spell, hp_val, mana_val, hotkey, is_mana=False):
-        """Cria linha de healing com ícone PNG"""
-        row = tk.Frame(parent, bg=self.colors['bg_panel'])
-        row.pack(fill=tk.X, pady=5)
+    def _add_healing_entry(self, data):
+        """Adiciona uma entrada de cura na lista"""
+        idx = len(self.healing_entries)
         
-        widgets = {}
+        row = tk.Frame(self.healing_list_frame, bg=self.colors['bg_input'])
+        row.pack(fill=tk.X, pady=1)
         
-        # Checkbox
-        var = tk.BooleanVar(value=False)
-        widgets['enabled'] = var
+        entry_data = {"frame": row, "data": data}
+        
+        # Checkbox ativo
+        var = tk.BooleanVar(value=data.get('enabled', False))
+        entry_data['enabled_var'] = var
         
         cb = tk.Checkbutton(
-            row, text=label, variable=var,
-            bg=self.colors['bg_panel'], fg=self.colors['text'],
+            row, variable=var,
+            bg=self.colors['bg_input'],
             selectcolor=self.colors['bg_dark'],
-            font=('Segoe UI', 9), width=10, anchor='w'
+            activebackground=self.colors['bg_input']
         )
-        cb.pack(side=tk.LEFT)
+        cb.pack(side=tk.LEFT, padx=5)
         
-        # Ícone (Label que será atualizado)
-        icon_label = tk.Label(row, bg=self.colors['bg_panel'])
+        # Ícone verde se ativo
+        status_label = tk.Label(row, text="✓" if data.get('enabled') else "",
+                               bg=self.colors['bg_input'],
+                               fg=self.colors['green'] if data.get('enabled') else self.colors['text_dim'],
+                               font=('Segoe UI', 10, 'bold'), width=2)
+        status_label.pack(side=tk.LEFT)
+        entry_data['status_label'] = status_label
+        
+        # Ícone da spell/item
+        icon_label = tk.Label(row, bg=self.colors['bg_input'])
         icon_label.pack(side=tk.LEFT, padx=5)
-        widgets['icon_label'] = icon_label
         
-        # Atualiza ícone inicial
-        self._update_row_icon(icon_label, default_spell)
+        spell_or_item = data.get('spell') or data.get('item_id', '')
+        self._update_row_icon(icon_label, spell_or_item)
+        entry_data['icon_label'] = icon_label
         
-        # Entry spell
-        spell_var = tk.StringVar(value=default_spell)
-        widgets['spell'] = spell_var
+        # Nome da spell/item
+        display_text = data.get('spell') if data.get('spell') else f"Item {data.get('item_id', '')}"
+        name_label = tk.Label(row, text=display_text[:15], bg=self.colors['bg_input'],
+                             fg=self.colors['text'], font=('Segoe UI', 9),
+                             width=15, anchor='w')
+        name_label.pack(side=tk.LEFT, padx=5)
+        entry_data['name_label'] = name_label
         
-        spell_entry = tk.Entry(row, textvariable=spell_var, width=15,
+        # Value
+        value_label = tk.Label(row, text=str(data.get('value', 0)), bg=self.colors['bg_input'],
+                              fg=self.colors['gold'], font=('Segoe UI', 9, 'bold'),
+                              width=6)
+        value_label.pack(side=tk.LEFT, padx=5)
+        entry_data['value_label'] = value_label
+        
+        # Condition
+        cond_type = "HP" if data.get('hp_percent') else "MP"
+        cond_op = data.get('condition', '<=')
+        cond_val = data.get('value', 0)
+        cond_text = f"{cond_type} {cond_op} {cond_val}%"
+        
+        if data.get('and_value', 0) > 0:
+            cond_text += f" A..."
+        
+        cond_label = tk.Label(row, text=cond_text, bg=self.colors['bg_input'],
+                             fg=self.colors['text_dim'], font=('Segoe UI', 8),
+                             width=18, anchor='w')
+        cond_label.pack(side=tk.LEFT, padx=5)
+        entry_data['cond_label'] = cond_label
+        
+        # Botão editar (clique na linha)
+        row.bind('<Double-Button-1>', lambda e, i=idx: self._open_edit_healing(i))
+        name_label.bind('<Double-Button-1>', lambda e, i=idx: self._open_edit_healing(i))
+        
+        # Botão deletar
+        del_btn = tk.Button(
+            row, text="✕",
+            font=('Segoe UI', 8),
+            bg=self.colors['bg_input'], fg=self.colors['red'],
+            relief=tk.FLAT, cursor='hand2',
+            command=lambda i=idx: self._delete_healing(i)
+        )
+        del_btn.pack(side=tk.RIGHT, padx=5)
+        
+        # Atualiza status ao mudar checkbox
+        def on_check_change(*args):
+            is_enabled = var.get()
+            status_label.configure(
+                text="✓" if is_enabled else "",
+                fg=self.colors['green'] if is_enabled else self.colors['text_dim']
+            )
+            entry_data['data']['enabled'] = is_enabled
+        
+        var.trace('w', on_check_change)
+        
+        self.healing_entries.append(entry_data)
+    
+    def _add_new_healing(self):
+        """Adiciona nova cura vazia"""
+        new_data = {
+            "enabled": False,
+            "spell": "",
+            "item_id": "",
+            "hp_percent": True,
+            "condition": "<=",
+            "value": 80,
+            "and_value": 0,
+            "hotkey": "F1"
+        }
+        self._add_healing_entry(new_data)
+        # Abre editor
+        self._open_edit_healing(len(self.healing_entries) - 1)
+    
+    def _delete_healing(self, idx):
+        """Deleta uma entrada de cura"""
+        if idx < len(self.healing_entries):
+            entry = self.healing_entries[idx]
+            entry['frame'].destroy()
+            self.healing_entries.pop(idx)
+            
+            # Reindexar eventos
+            for i, entry in enumerate(self.healing_entries):
+                entry['frame'].bind('<Double-Button-1>', lambda e, i=i: self._open_edit_healing(i))
+    
+    def _open_edit_healing(self, idx):
+        """Abre popup de edição de cura (estilo ZeroBot)"""
+        if idx >= len(self.healing_entries):
+            return
+        
+        entry = self.healing_entries[idx]
+        data = entry['data']
+        
+        # Cria popup
+        popup = tk.Toplevel(self.root)
+        popup.title("Edit Healing")
+        popup.geometry("320x380")
+        popup.configure(bg=self.colors['bg_dark'])
+        popup.resizable(False, False)
+        
+        # Centraliza
+        x = self.root.winfo_x() + 150
+        y = self.root.winfo_y() + 100
+        popup.geometry(f"+{x}+{y}")
+        
+        # === WHEN (HP% ou MP%) ===
+        when_frame = tk.Frame(popup, bg=self.colors['bg_dark'])
+        when_frame.pack(fill=tk.X, padx=15, pady=10)
+        
+        tk.Label(when_frame, text="When:", bg=self.colors['bg_dark'],
+                fg=self.colors['text'], font=('Segoe UI', 9)).pack(side=tk.LEFT)
+        
+        when_var = tk.StringVar(value="HP%" if data.get('hp_percent', True) else "MP%")
+        
+        hp_rb = tk.Radiobutton(when_frame, text="HP%", variable=when_var, value="HP%",
+                              bg=self.colors['bg_dark'], fg=self.colors['text'],
+                              selectcolor=self.colors['bg_input'],
+                              font=('Segoe UI', 9))
+        hp_rb.pack(side=tk.LEFT, padx=10)
+        
+        mp_rb = tk.Radiobutton(when_frame, text="MP%", variable=when_var, value="MP%",
+                              bg=self.colors['bg_dark'], fg=self.colors['text'],
+                              selectcolor=self.colors['bg_input'],
+                              font=('Segoe UI', 9))
+        mp_rb.pack(side=tk.LEFT)
+        
+        # === IS (condição) ===
+        is_frame = tk.Frame(popup, bg=self.colors['bg_dark'])
+        is_frame.pack(fill=tk.X, padx=15, pady=5)
+        
+        tk.Label(is_frame, text="Is:", bg=self.colors['bg_dark'],
+                fg=self.colors['text'], font=('Segoe UI', 9), width=6, anchor='w').pack(side=tk.LEFT)
+        
+        cond_var = tk.StringVar(value=data.get('condition', '<='))
+        cond_combo = ttk.Combobox(is_frame, textvariable=cond_var, values=[">=", "<=", "=="],
+                                  width=5, state='readonly')
+        cond_combo.pack(side=tk.LEFT, padx=5)
+        
+        value_var = tk.StringVar(value=str(data.get('value', 80)))
+        value_entry = tk.Entry(is_frame, textvariable=value_var, width=5,
                               font=('Segoe UI', 9), bg=self.colors['bg_input'],
-                              fg=self.colors['text'], relief=tk.FLAT,
-                              insertbackground='white')
-        spell_entry.pack(side=tk.LEFT, padx=3)
+                              fg=self.colors['text'], relief=tk.FLAT)
+        value_entry.pack(side=tk.LEFT, padx=5)
         
-        # Atualiza ícone quando digita
-        def on_spell_change(*args):
-            self._update_row_icon(icon_label, spell_var.get())
-        spell_var.trace('w', on_spell_change)
+        tk.Label(is_frame, text="And <=", bg=self.colors['bg_dark'],
+                fg=self.colors['text_dim'], font=('Segoe UI', 8)).pack(side=tk.LEFT, padx=5)
         
-        # HP
-        tk.Label(row, text="HP ≤", bg=self.colors['bg_panel'],
-                fg=self.colors['hp'], font=('Segoe UI', 8)).pack(side=tk.LEFT, padx=(15, 3))
+        and_var = tk.StringVar(value=str(data.get('and_value', 100)))
+        and_entry = tk.Entry(is_frame, textvariable=and_var, width=5,
+                            font=('Segoe UI', 9), bg=self.colors['bg_input'],
+                            fg=self.colors['text'], relief=tk.FLAT)
+        and_entry.pack(side=tk.LEFT, padx=5)
         
-        hp_var = tk.StringVar(value=str(hp_val))
-        widgets['hp'] = hp_var
+        # === SPELL ===
+        spell_frame = tk.Frame(popup, bg=self.colors['bg_dark'])
+        spell_frame.pack(fill=tk.X, padx=15, pady=5)
         
-        hp_entry = tk.Entry(row, textvariable=hp_var, width=4,
-                           font=('Segoe UI', 9), bg=self.colors['bg_input'],
-                           fg=self.colors['hp'], relief=tk.FLAT,
-                           insertbackground='white', justify='center')
-        hp_entry.pack(side=tk.LEFT)
+        tk.Label(spell_frame, text="Spell:", bg=self.colors['bg_dark'],
+                fg=self.colors['text'], font=('Segoe UI', 9), width=6, anchor='w').pack(side=tk.LEFT)
         
-        # MP
-        tk.Label(row, text="MP ≤", bg=self.colors['bg_panel'],
-                fg=self.colors['mp'], font=('Segoe UI', 8)).pack(side=tk.LEFT, padx=(10, 3))
+        spell_var = tk.StringVar(value=data.get('spell', ''))
+        spell_entry = tk.Entry(spell_frame, textvariable=spell_var, width=18,
+                              font=('Segoe UI', 9), bg=self.colors['bg_input'],
+                              fg=self.colors['text'], relief=tk.FLAT)
+        spell_entry.pack(side=tk.LEFT, padx=5)
         
-        mana_var = tk.StringVar(value=str(mana_val))
-        widgets['mana'] = mana_var
+        # Botão para escolher spell da classe
+        spell_btn = tk.Button(
+            spell_frame, text="...",
+            font=('Segoe UI', 8, 'bold'),
+            bg=self.colors['btn'], fg=self.colors['accent'],
+            relief=tk.FLAT, cursor='hand2',
+            command=lambda: self._open_spell_picker_popup(spell_var, popup)
+        )
+        spell_btn.pack(side=tk.LEFT, padx=5)
         
-        mana_entry = tk.Entry(row, textvariable=mana_var, width=4,
+        # === ITEM ===
+        item_frame = tk.Frame(popup, bg=self.colors['bg_dark'])
+        item_frame.pack(fill=tk.X, padx=15, pady=5)
+        
+        tk.Label(item_frame, text="Item:", bg=self.colors['bg_dark'],
+                fg=self.colors['text'], font=('Segoe UI', 9), width=6, anchor='w').pack(side=tk.LEFT)
+        
+        item_var = tk.StringVar(value=data.get('item_id', ''))
+        item_entry = tk.Entry(item_frame, textvariable=item_var, width=10,
                              font=('Segoe UI', 9), bg=self.colors['bg_input'],
-                             fg=self.colors['mp'], relief=tk.FLAT,
-                             insertbackground='white', justify='center')
-        mana_entry.pack(side=tk.LEFT)
+                             fg=self.colors['text'], relief=tk.FLAT)
+        item_entry.pack(side=tk.LEFT, padx=5)
         
-        # Hotkey
-        tk.Label(row, text="Key:", bg=self.colors['bg_panel'],
-                fg=self.colors['gold'], font=('Segoe UI', 8)).pack(side=tk.LEFT, padx=(10, 3))
+        # Ícone do item (preview)
+        item_icon = tk.Label(item_frame, bg=self.colors['bg_dark'])
+        item_icon.pack(side=tk.LEFT, padx=10)
         
-        hotkey_var = tk.StringVar(value=hotkey)
-        widgets['hotkey'] = hotkey_var
-        widgets['is_mana'] = is_mana
+        # Botão info
+        tk.Button(item_frame, text="ⓘ", font=('Segoe UI', 8),
+                 bg=self.colors['bg_dark'], fg=self.colors['accent'],
+                 relief=tk.FLAT).pack(side=tk.LEFT)
         
-        hotkey_entry = tk.Entry(row, textvariable=hotkey_var, width=4,
+        # === MANA ===
+        mana_frame = tk.Frame(popup, bg=self.colors['bg_dark'])
+        mana_frame.pack(fill=tk.X, padx=15, pady=5)
+        
+        tk.Label(mana_frame, text="Mana:", bg=self.colors['bg_dark'],
+                fg=self.colors['text'], font=('Segoe UI', 9), width=6, anchor='w').pack(side=tk.LEFT)
+        
+        mana_var = tk.StringVar(value=str(data.get('mana_cost', 0)))
+        mana_entry = tk.Entry(mana_frame, textvariable=mana_var, width=8,
+                             font=('Segoe UI', 9), bg=self.colors['bg_input'],
+                             fg=self.colors['text'], relief=tk.FLAT)
+        mana_entry.pack(side=tk.LEFT, padx=5)
+        
+        # === HOTKEY ===
+        hotkey_frame = tk.Frame(popup, bg=self.colors['bg_dark'])
+        hotkey_frame.pack(fill=tk.X, padx=15, pady=5)
+        
+        tk.Label(hotkey_frame, text="Hotkey:", bg=self.colors['bg_dark'],
+                fg=self.colors['text'], font=('Segoe UI', 9), width=6, anchor='w').pack(side=tk.LEFT)
+        
+        hotkey_var = tk.StringVar(value=data.get('hotkey', 'F1'))
+        hotkey_entry = tk.Entry(hotkey_frame, textvariable=hotkey_var, width=6,
                                font=('Segoe UI', 9), bg=self.colors['bg_input'],
-                               fg=self.colors['gold'], relief=tk.FLAT,
-                               insertbackground='white', justify='center')
-        hotkey_entry.pack(side=tk.LEFT)
+                               fg=self.colors['gold'], relief=tk.FLAT)
+        hotkey_entry.pack(side=tk.LEFT, padx=5)
         
-        self.heal_entries[label] = widgets
+        # === CONDITIONS ===
+        cond_frame = tk.LabelFrame(popup, text="Conditions", bg=self.colors['bg_dark'],
+                                   fg=self.colors['text_dim'], font=('Segoe UI', 8))
+        cond_frame.pack(fill=tk.X, padx=15, pady=10)
+        
+        drunk_var = tk.BooleanVar(value=data.get('drunk', False))
+        tk.Checkbutton(cond_frame, text="Drunk", variable=drunk_var,
+                      bg=self.colors['bg_dark'], fg=self.colors['text'],
+                      selectcolor=self.colors['bg_input'],
+                      font=('Segoe UI', 8)).pack(side=tk.LEFT, padx=5)
+        
+        rooted_var = tk.BooleanVar(value=data.get('rooted', False))
+        tk.Checkbutton(cond_frame, text="Rooted", variable=rooted_var,
+                      bg=self.colors['bg_dark'], fg=self.colors['text'],
+                      selectcolor=self.colors['bg_input'],
+                      font=('Segoe UI', 8)).pack(side=tk.LEFT, padx=5)
+        
+        feared_var = tk.BooleanVar(value=data.get('feared', False))
+        tk.Checkbutton(cond_frame, text="Feared", variable=feared_var,
+                      bg=self.colors['bg_dark'], fg=self.colors['text'],
+                      selectcolor=self.colors['bg_input'],
+                      font=('Segoe UI', 8)).pack(side=tk.LEFT, padx=5)
+        
+        no_target_var = tk.BooleanVar(value=data.get('no_target', False))
+        tk.Checkbutton(cond_frame, text="Don't Cast If Targeting", variable=no_target_var,
+                      bg=self.colors['bg_dark'], fg=self.colors['text'],
+                      selectcolor=self.colors['bg_input'],
+                      font=('Segoe UI', 8)).pack(fill=tk.X, padx=5, pady=5)
+        
+        # === BOTÕES ===
+        btn_frame = tk.Frame(popup, bg=self.colors['bg_dark'])
+        btn_frame.pack(fill=tk.X, padx=15, pady=15)
+        
+        def save_and_close():
+            # Salva dados
+            data['hp_percent'] = when_var.get() == "HP%"
+            data['condition'] = cond_var.get()
+            data['value'] = int(value_var.get()) if value_var.get().isdigit() else 80
+            data['and_value'] = int(and_var.get()) if and_var.get().isdigit() else 100
+            data['spell'] = spell_var.get()
+            data['item_id'] = item_var.get()
+            data['mana_cost'] = int(mana_var.get()) if mana_var.get().isdigit() else 0
+            data['hotkey'] = hotkey_var.get()
+            data['drunk'] = drunk_var.get()
+            data['rooted'] = rooted_var.get()
+            data['feared'] = feared_var.get()
+            data['no_target'] = no_target_var.get()
+            
+            # Atualiza display
+            self._update_healing_entry_display(idx)
+            popup.destroy()
+        
+        tk.Button(btn_frame, text="Cancel", font=('Segoe UI', 9),
+                 bg=self.colors['btn'], fg=self.colors['text'],
+                 relief=tk.FLAT, padx=20, cursor='hand2',
+                 command=popup.destroy).pack(side=tk.LEFT, padx=5)
+        
+        tk.Button(btn_frame, text="Edit", font=('Segoe UI', 9, 'bold'),
+                 bg=self.colors['green'], fg='white',
+                 relief=tk.FLAT, padx=20, cursor='hand2',
+                 command=save_and_close).pack(side=tk.LEFT, padx=5)
+        
+        popup.transient(self.root)
+        popup.grab_set()
+    
+    def _update_healing_entry_display(self, idx):
+        """Atualiza o display de uma entrada de cura"""
+        if idx >= len(self.healing_entries):
+            return
+        
+        entry = self.healing_entries[idx]
+        data = entry['data']
+        
+        # Atualiza nome
+        display_text = data.get('spell') if data.get('spell') else f"Item {data.get('item_id', '')}"
+        entry['name_label'].configure(text=display_text[:15])
+        
+        # Atualiza ícone
+        spell_or_item = data.get('spell') or data.get('item_id', '')
+        self._update_row_icon(entry['icon_label'], spell_or_item)
+        
+        # Atualiza valor
+        entry['value_label'].configure(text=str(data.get('value', 0)))
+        
+        # Atualiza condição
+        cond_type = "HP" if data.get('hp_percent') else "MP"
+        cond_op = data.get('condition', '<=')
+        cond_val = data.get('value', 0)
+        cond_text = f"{cond_type} {cond_op} {cond_val}%"
+        
+        if data.get('and_value', 0) > 0 and data.get('and_value') != 100:
+            cond_text += f" A..."
+        
+        entry['cond_label'].configure(text=cond_text)
+    
+    def _open_spell_picker_popup(self, spell_var, parent_popup):
+        """Abre popup de seleção de spell"""
+        picker = tk.Toplevel(parent_popup)
+        picker.title(f"Spells - {self.selected_class}")
+        picker.geometry("280x350")
+        picker.configure(bg=self.colors['bg_dark'])
+        
+        x = parent_popup.winfo_x() + 50
+        y = parent_popup.winfo_y() + 20
+        picker.geometry(f"+{x}+{y}")
+        
+        # Seletor de classe
+        class_frame = tk.Frame(picker, bg=self.colors['bg_dark'])
+        class_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        for class_name in ["Knight", "Paladin", "Sorcerer", "Druid", "Monk"]:
+            color = self.class_colors[class_name]
+            is_sel = class_name == self.selected_class
+            btn = tk.Button(
+                class_frame, text=class_name[:2],
+                font=('Segoe UI', 7, 'bold'),
+                bg=color if is_sel else self.colors['btn'],
+                fg='white' if is_sel else self.colors['text'],
+                relief=tk.FLAT, width=3,
+                command=lambda c=class_name, p=picker, sv=spell_var: self._refresh_spell_picker(c, p, sv)
+            )
+            btn.pack(side=tk.LEFT, padx=1)
+        
+        # Lista de spells
+        self._create_spell_list(picker, spell_var)
+        
+        picker.transient(parent_popup)
+        picker.grab_set()
+    
+    def _refresh_spell_picker(self, class_name, picker, spell_var):
+        """Atualiza a lista de spells ao mudar classe"""
+        self.selected_class = class_name
+        
+        # Remove lista antiga
+        for widget in picker.winfo_children():
+            if isinstance(widget, tk.Frame) and widget.winfo_y() > 50:
+                widget.destroy()
+        
+        self._create_spell_list(picker, spell_var)
+    
+    def _create_spell_list(self, picker, spell_var):
+        """Cria lista de spells no picker"""
+        list_frame = tk.Frame(picker, bg=self.colors['bg_dark'])
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
+        canvas = tk.Canvas(list_frame, bg=self.colors['bg_dark'], highlightthickness=0)
+        scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=canvas.yview)
+        scrollable = tk.Frame(canvas, bg=self.colors['bg_dark'])
+        
+        scrollable.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scrollable, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        spells = self.class_spells.get(self.selected_class, [])
+        color = self.class_colors[self.selected_class]
+        
+        for spell_name, spell_words, desc in spells:
+            row = tk.Frame(scrollable, bg=self.colors['bg_input'])
+            row.pack(fill=tk.X, pady=1, padx=2)
+            
+            # Ícone
+            icon_lbl = tk.Label(row, bg=self.colors['bg_input'])
+            icon_lbl.pack(side=tk.LEFT, padx=5, pady=3)
+            self._update_row_icon(icon_lbl, spell_words)
+            
+            # Info
+            tk.Label(row, text=spell_words, bg=self.colors['bg_input'],
+                    fg=self.colors['text'], font=('Segoe UI', 9)).pack(side=tk.LEFT, padx=5)
+            
+            # Botão selecionar
+            def select(sw=spell_words, p=picker):
+                spell_var.set(sw)
+                p.destroy()
+            
+            tk.Button(row, text="✓", font=('Segoe UI', 9, 'bold'),
+                     bg=color, fg='white', relief=tk.FLAT, width=2,
+                     cursor='hand2', command=select).pack(side=tk.RIGHT, padx=5, pady=3)
+    
+    def _select_class(self, class_name):
+        """Seleciona a classe do personagem"""
+        self.selected_class = class_name
+        
+        # Atualiza botões se existirem
+        if hasattr(self, 'class_buttons_healing'):
+            for name, btn in self.class_buttons_healing.items():
+                color = self.class_colors[name]
+                if name == class_name:
+                    btn.configure(bg=color, fg='white')
+                else:
+                    btn.configure(bg=self.colors['btn'], fg=self.colors['text'])
     
     def _update_row_icon(self, icon_label, spell_name):
         """Atualiza ícone da linha"""
@@ -750,18 +1189,26 @@ class BotWindowWithIcons:
             
             if self.healing:
                 self._apply_healing_config()
+                self.healing.set_enabled(True)  # ATIVA o módulo de healing
                 self.healing.start_loop(interval=0.050)
+                if self.healing_var:
+                    self.healing_var.set(True)  # Atualiza checkbox
         else:
             self.bot_btn.configure(text="▶ START", bg=self.colors['green'])
             self.title_label.configure(text="Baiak Bot Premium  •  Stopped")
             
             if self.healing:
+                self.healing.set_enabled(False)  # DESATIVA o módulo
                 self.healing.stop_loop()
+                if self.healing_var:
+                    self.healing_var.set(False)  # Atualiza checkbox
     
     def _toggle_healing(self):
         """Toggle healing"""
-        if self.healing:
-            self.healing.toggle()
+        if self.healing and self.healing_var:
+            enabled = self.healing_var.get()
+            self.healing.set_enabled(enabled)
+            print(f"[GUI] Healing {'ATIVADO' if enabled else 'DESATIVADO'}")
     
     def _apply_healing_config(self):
         """Aplica config healing"""
@@ -769,18 +1216,16 @@ class BotWindowWithIcons:
             return
         
         slot = 0
-        for label, data in self.heal_entries.items():
+        for entry in self.healing_entries:
             if slot >= 3:
                 break
             
-            enabled = data['enabled'].get()
-            hotkey = data['hotkey'].get()
+            data = entry['data']
+            enabled = entry['enabled_var'].get()
+            hotkey = data.get('hotkey', 'F1')
             
             try:
-                if data.get('is_mana'):
-                    threshold = int(data['mana'].get()) if data['mana'].get() else 0
-                else:
-                    threshold = int(data['hp'].get()) if data['hp'].get() else 0
+                threshold = int(data.get('value', 80))
             except:
                 threshold = 80
             
@@ -789,28 +1234,280 @@ class BotWindowWithIcons:
                 slot += 1
     
     def _on_connect(self):
-        """Conecta"""
-        if self.memory.connect():
-            self.healing = HealingModuleV2(self.memory)
-            self.healing.find_tibia_window()
+        """Conecta com barra de progresso"""
+        # Desabilita o botão durante a conexão
+        self.connect_btn.configure(state='disabled', text="Conectando...")
+        self.status_label.configure(text="● Conectando...", fg=self.colors['gold'])
+        self.root.update()
+        
+        # Conecta ao processo primeiro (sem auto-scan)
+        try:
+            if not self.memory.pm:
+                import pymem
+                self.memory.pm = pymem.Pymem("client.exe")
+                self.memory.pid = self.memory.pm.process_id
+                self.memory.base_address = self.memory.pm.base_address
+                self.memory.connected = True
             
-            self.status_label.configure(text="● Connected", fg=self.colors['green'])
-            self.connect_btn.configure(text="Reconnect")
+            # Tenta carregar cache
+            self.memory._load_offsets()
             
-            if hasattr(self, 'config_status'):
-                self.config_status.configure(text="● Conectado!", fg=self.colors['green'])
-            
-            if self.memory.has_offsets():
-                self.title_label.configure(text="Baiak Bot Premium  •  Connected")
+            # Verifica se offsets são válidos
+            if self.memory._verify_offsets():
+                # Cache válido, conecta direto
+                self.healing = HealingModuleV2(self.memory)
+                self.healing.find_tibia_window()
+                self._on_connect_success()
             else:
-                self.title_label.configure(text="Baiak Bot Premium  •  No Offsets!")
+                # Precisa escanear - mostra popup com barra de progresso
+                self._show_auto_scan_popup()
+                
+        except Exception as e:
+            print(f"[CONNECT] Erro: {e}")
+            self._on_connect_failed()
+    
+    def _on_connect_success(self):
+        """Chamado quando conexão bem sucedida"""
+        self.connect_btn.configure(state='normal', text="Reconnect")
+        
+        if self.memory.has_offsets():
+            hp = self.memory.get_player_hp_percent()
+            mp = self.memory.get_player_mp_percent()
+            
+            if hp > 0 and hp <= 100:
+                self.status_label.configure(text="● Connected", fg=self.colors['green'])
+                self.title_label.configure(text="Baiak Bot Premium  •  Connected")
+                
+                if hasattr(self, 'config_status'):
+                    self.config_status.configure(text="● Conectado!", fg=self.colors['green'])
+            else:
+                self.status_label.configure(text="● Offsets inválidos", fg=self.colors['gold'])
+                self.title_label.configure(text="Baiak Bot Premium  •  Precisa escanear")
+                self._show_auto_scan_popup()
         else:
-            self.status_label.configure(text="● Error", fg=self.colors['red'])
+            self.status_label.configure(text="● Sem offsets", fg=self.colors['gold'])
+            self.title_label.configure(text="Baiak Bot Premium  •  Precisa escanear")
+            self._show_auto_scan_popup()
+    
+    def _on_connect_failed(self):
+        """Chamado quando conexão falha"""
+        self.connect_btn.configure(state='normal', text="Connect")
+        self.status_label.configure(text="● Tibia não encontrado", fg=self.colors['red'])
+    
+    def _show_auto_scan_popup(self):
+        """Mostra popup de scan automático com barra de progresso estilo download"""
+        popup = tk.Toplevel(self.root)
+        popup.title("Auto Scanner")
+        popup.geometry("450x280")
+        popup.configure(bg='#1a1a2e')
+        popup.resizable(False, False)
+        popup.transient(self.root)
+        popup.grab_set()
+        popup.overrideredirect(False)
+        
+        # Centraliza na tela
+        popup.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - 225
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - 140
+        popup.geometry(f"+{x}+{y}")
+        
+        # Frame principal com borda
+        main_frame = tk.Frame(popup, bg='#1a1a2e', highlightbackground='#4a90d9', highlightthickness=2)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        
+        # Ícone animado (emoji)
+        icon_label = tk.Label(main_frame, text="🔍", 
+                             bg='#1a1a2e', fg='white',
+                             font=('Segoe UI Emoji', 32))
+        icon_label.pack(pady=(20, 10))
+        
+        # Título
+        title_label = tk.Label(main_frame, text="Detectando Player Automaticamente", 
+                              bg='#1a1a2e', fg='#4a90d9',
+                              font=('Segoe UI', 14, 'bold'))
+        title_label.pack(pady=(0, 5))
+        
+        # Subtítulo
+        subtitle = tk.Label(main_frame, text="Escaneando memória do Tibia...",
+                           bg='#1a1a2e', fg='#888888',
+                           font=('Segoe UI', 9))
+        subtitle.pack(pady=(0, 15))
+        
+        # Frame da barra de progresso customizada
+        bar_frame = tk.Frame(main_frame, bg='#0d0d1a', height=30)
+        bar_frame.pack(fill=tk.X, padx=30, pady=5)
+        bar_frame.pack_propagate(False)
+        
+        # Barra de fundo
+        bar_bg = tk.Frame(bar_frame, bg='#2d2d44', height=24)
+        bar_bg.pack(fill=tk.BOTH, expand=True, padx=3, pady=3)
+        
+        # Barra de progresso (vai crescer)
+        progress_bar = tk.Frame(bar_bg, bg='#4a90d9', width=0, height=18)
+        progress_bar.place(x=3, y=3, height=18)
+        
+        # Porcentagem no centro da barra
+        pct_label = tk.Label(bar_bg, text="0%", 
+                            bg='#2d2d44', fg='white',
+                            font=('Segoe UI', 10, 'bold'))
+        pct_label.place(relx=0.5, rely=0.5, anchor='center')
+        
+        # Status detalhado
+        status_label = tk.Label(main_frame, text="Iniciando...",
+                               bg='#1a1a2e', fg='#aaaaaa',
+                               font=('Segoe UI', 9))
+        status_label.pack(pady=(10, 5))
+        
+        # Info de tempo
+        time_label = tk.Label(main_frame, text="Tempo estimado: ~15 segundos",
+                             bg='#1a1a2e', fg='#666666',
+                             font=('Segoe UI', 8))
+        time_label.pack(pady=(0, 15))
+        
+        # Variáveis para animação
+        bar_width = [0]
+        max_width = 384  # Largura máxima da barra
+        
+        def update_progress(pct, msg):
+            """Callback para atualizar progresso"""
+            try:
+                # Atualiza barra
+                new_width = int((pct / 100) * max_width)
+                bar_width[0] = new_width
+                progress_bar.configure(width=new_width)
+                progress_bar.place(x=3, y=3, width=new_width, height=18)
+                
+                # Atualiza porcentagem
+                pct_label.configure(text=f"{int(pct)}%")
+                
+                # Muda cor da barra conforme progresso
+                if pct < 30:
+                    progress_bar.configure(bg='#4a90d9')  # Azul
+                elif pct < 70:
+                    progress_bar.configure(bg='#5ba0e9')  # Azul claro
+                else:
+                    progress_bar.configure(bg='#6bc96b')  # Verde
+                
+                # Atualiza cor do texto da porcentagem baseado no progresso
+                if new_width > max_width / 2:
+                    pct_label.configure(bg='#4a90d9' if pct < 70 else '#6bc96b', fg='white')
+                else:
+                    pct_label.configure(bg='#2d2d44', fg='white')
+                
+                # Atualiza status
+                status_label.configure(text=msg)
+                
+                popup.update()
+            except:
+                pass
+        
+        def scan_thread():
+            """Executa scan em thread separada"""
+            import time as t
+            start_time = t.time()
+            
+            try:
+                from memory.smart_scanner import SmartScanner
+                
+                scanner = SmartScanner()
+                scanner.pm = self.memory.pm
+                
+                # Callback que também atualiza tempo
+                def progress_with_time(pct, msg):
+                    elapsed = t.time() - start_time
+                    self.root.after(0, lambda: time_label.configure(
+                        text=f"Tempo: {elapsed:.1f}s"
+                    ))
+                    self.root.after(0, lambda p=pct, m=msg: update_progress(p, m))
+                
+                result = scanner.find_player_auto(progress_callback=progress_with_time)
+                
+                if result:
+                    # Atualiza endereços no memory reader
+                    self.memory._addresses["hp"] = result["addr"]
+                    self.memory._addresses["hp_max"] = result["addr"] + 0x8
+                    self.memory._addresses["mp"] = result["addr"] + 0x620
+                    self.memory._addresses["mp_max"] = result["addr"] + 0x628
+                    
+                    # Salva cache
+                    scanner.save_to_cache(result["addr"])
+                    
+                    # Mostra sucesso por 1 segundo
+                    self.root.after(0, lambda: self._show_scan_success(popup, result, t.time() - start_time))
+                else:
+                    self.root.after(0, lambda: self._scan_failed(popup))
+                    
+            except Exception as e:
+                print(f"[SCAN] Erro: {e}")
+                self.root.after(0, lambda: self._scan_failed(popup))
+        
+        threading.Thread(target=scan_thread, daemon=True).start()
+    
+    def _show_scan_success(self, popup, result, elapsed):
+        """Mostra tela de sucesso antes de fechar"""
+        # Limpa popup
+        for widget in popup.winfo_children():
+            widget.destroy()
+        
+        # Frame principal
+        main_frame = tk.Frame(popup, bg='#1a1a2e', highlightbackground='#6bc96b', highlightthickness=2)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        
+        # Ícone de sucesso
+        tk.Label(main_frame, text="✅", 
+                bg='#1a1a2e', fg='white',
+                font=('Segoe UI Emoji', 40)).pack(pady=(30, 10))
+        
+        # Título
+        tk.Label(main_frame, text="Player Detectado!", 
+                bg='#1a1a2e', fg='#6bc96b',
+                font=('Segoe UI', 16, 'bold')).pack(pady=(0, 10))
+        
+        # Info
+        tk.Label(main_frame, text=f"HP: {result['hp']}/{result['hp_max']}  •  MP: {result['mp']}/{result['mp_max']}", 
+                bg='#1a1a2e', fg='white',
+                font=('Segoe UI', 11)).pack(pady=5)
+        
+        tk.Label(main_frame, text=f"Tempo: {elapsed:.1f} segundos", 
+                bg='#1a1a2e', fg='#888888',
+                font=('Segoe UI', 9)).pack(pady=(5, 20))
+        
+        # Fecha após 1.5 segundos
+        popup.after(1500, lambda: self._scan_complete(popup, result))
+    
+    def _scan_complete(self, popup, result):
+        """Chamado quando scan termina com sucesso"""
+        try:
+            popup.destroy()
+        except:
+            pass
+        
+        # Configura healing após scan bem sucedido
+        self.healing = HealingModuleV2(self.memory)
+        self.healing.find_tibia_window()
+        
+        self.connect_btn.configure(state='normal', text="Reconnect")
+        self.status_label.configure(text="● Connected", fg=self.colors['green'])
+        self.title_label.configure(text="Baiak Bot Premium  •  Connected")
+        
+        if hasattr(self, 'config_status'):
+            self.config_status.configure(text="● Conectado!", fg=self.colors['green'])
+    
+    def _scan_failed(self, popup):
+        """Chamado quando scan falha"""
+        try:
+            popup.destroy()
+        except:
+            pass
+        
+        self.connect_btn.configure(state='normal', text="Connect")
+        self.status_label.configure(text="● Scan falhou", fg=self.colors['red'])
+        self.title_label.configure(text="Baiak Bot Premium  •  Erro")
     
     def _open_scanner(self):
-        """Abre scanner"""
+        """Abre scanner simples em uma nova janela"""
         import subprocess
-        scanner_path = os.path.join(os.path.dirname(__file__), "..", "memory", "scanner_advanced.py")
+        scanner_path = os.path.join(os.path.dirname(__file__), "..", "memory", "scanner_simple.py")
         try:
             subprocess.Popen([sys.executable, scanner_path], creationflags=subprocess.CREATE_NEW_CONSOLE)
         except:
